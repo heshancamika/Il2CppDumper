@@ -1,0 +1,39 @@
+
+
+name: Build Il2CppDumper for Android (Termux)
+
+on:
+  workflow_dispatch:  # GitHub Actions tab එකෙන් manually trigger කරන්න
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Il2CppDumper
+        uses: actions/checkout@v4
+        with:
+          repository: Perfare/Il2CppDumper
+          ref: master
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Publish for linux-arm64 (Termux)
+        run: |
+          dotnet publish Il2CppDumper/Il2CppDumper.csproj \
+            -c Release \
+            -r linux-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o ./output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Il2CppDumper-linux-arm64
+          path: ./output/
+          retention-days: 7
