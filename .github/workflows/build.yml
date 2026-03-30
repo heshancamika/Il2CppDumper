@@ -1,38 +1,39 @@
-name: Build Il2CppDumper (.exe for Mono)
+name: Build Il2CppDumper for Termux (Android)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master ]
 
 jobs:
-  build:
+  build-linux-arm64:
     runs-on: ubuntu-latest
-
+    
     steps:
-      - name: Checkout Il2CppDumper
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          repository: Perfare/Il2CppDumper
-          ref: master
 
-      - name: Setup .NET
+      - name: Setup .NET 6
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '6.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Restore
+        run: dotnet restore Il2CppDumper.sln
 
-      - name: Build Release
+      - name: Publish (linux-arm64, self-contained)
         run: |
           dotnet publish Il2CppDumper/Il2CppDumper.csproj \
             -c Release \
-            --no-self-contained \
-            -f net6.0 \
+            -r linux-arm64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
             -o ./output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Il2CppDumper-mono
-          path: ./output/
-          retention-days: 7
+          name: Il2CppDumper-Android-ARM64
+          path: ./output/Il2CppDumper
+          retention-days: 30
