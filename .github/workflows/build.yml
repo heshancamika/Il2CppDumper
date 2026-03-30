@@ -1,29 +1,28 @@
-name: Build Il2CppDumper for Termux (Android)
+name: Build Il2CppDumper for Termux
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, master ]
 
 jobs:
-  build-linux-arm64:
+  build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 6
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore Il2CppDumper.sln
+        run: dotnet restore Il2CppDumper/Il2CppDumper.csproj
 
-      - name: Publish (linux-arm64, self-contained)
+      - name: Publish linux-arm64
         run: |
           dotnet publish Il2CppDumper/Il2CppDumper.csproj \
+            -f net8.0 \
             -c Release \
             -r linux-arm64 \
             --self-contained true \
@@ -34,6 +33,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Il2CppDumper-Android-ARM64
-          path: ./output/Il2CppDumper
+          name: Il2CppDumper-ARM64
+          path: ./output/
           retention-days: 30
