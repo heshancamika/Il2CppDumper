@@ -1,38 +1,16 @@
-name: Build Il2CppDumper for Termux
-
-on:
-  workflow_dispatch:
-
+name: Build My Dumper
+on: [push]
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Restore
-        run: dotnet restore Il2CppDumper/Il2CppDumper.csproj
-
-      - name: Publish linux-arm64
-        run: |
-          dotnet publish Il2CppDumper/Il2CppDumper.csproj \
-            -f net8.0 \
-            -c Release \
-            -r linux-arm64 \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -o ./output
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Il2CppDumper-ARM64
-          path: ./output/
-          retention-days: 30
+    - uses: actions/checkout@v2
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1
+    - name: Build
+      run: msbuild Il2CppDumper.sln /p:Configuration=Release
+    - name: Upload Binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: CustomDumper
+        path: Il2CppDumper/bin/Release/Il2CppDumper.exe
