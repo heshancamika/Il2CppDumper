@@ -1,9 +1,7 @@
-
-
-name: Build Il2CppDumper for Android (Termux)
+name: Build Il2CppDumper (.exe for Mono)
 
 on:
-  workflow_dispatch:  # GitHub Actions tab එකෙන් manually trigger කරන්න
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,19 +19,20 @@ jobs:
         with:
           dotnet-version: '6.0.x'
 
-      - name: Publish for linux-arm64 (Termux)
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build Release
         run: |
           dotnet publish Il2CppDumper/Il2CppDumper.csproj \
             -c Release \
-            -r linux-arm64 \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
+            --no-self-contained \
+            -f net6.0 \
             -o ./output
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Il2CppDumper-linux-arm64
+          name: Il2CppDumper-mono
           path: ./output/
           retention-days: 7
