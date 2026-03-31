@@ -1,0 +1,72 @@
+name: IL2CPP Cloud Dump
+on:
+  workflow_dispatch:
+    inputs:
+      libil2cpp_url:
+        description: 'libil2cpp.so download URL'
+        required: true
+      metadata_url:
+        description: 'global-metadata.dat download URL'
+        required: true
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build Il2CppDumper
+        run: |
+          dotnet restore Il2CppDumper/Il2CppDumper.csproj
+          dotnet publish Il2CppDumper/Il2CppDumper.csproj -f net8.0 -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./dumper
+      - name: Download game files
+        run: |
+          mkdir -p ./gamefiles
+          python3 - <<'PYEOF'
+          import urllib.request, re, sys, os
+
+          def get_direct_url(url):
+              if 'mediafire.com' in url:
+                  req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                  html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
+                  match = re.search(r'href="(https://downloadd*.mediafire.com/[^"]+)"', html)
+                  if match:
+                      return match.group(1)
+                  match = re.search(r'"(https://downloadd*.mediafire.com/[^"]+)"', html)
+                  if match:
+                      return match.group(1)
+              return url
+
+          libil2cpp_url = os.environ['LIBIL2CPP_URL']
+          metadata_url = os.environ['METADATA_URL']
+
+          print(f"Downloading libil2cpp.so from: {libil2cpp_url}")
+          direct1 = get_direct_url(libil2cpp_url)
+          print(f"Direct URL: {direct1}")
+          urllib.request.urlretrieve(direct1, './gamefiles/libil2cpp.so')
+
+          print(f"Downloading global-metadata.dat from: {metadata_url}")
+          direct2 = get_direct_url(metadata_url)
+          print(f"Direct URL: {direct2}")
+          urllib.request.urlretrieve(direct2, './gamefiles/global-metadata.dat')
+
+          print("Downloads complete!")
+          PYEOF
+        env:
+          LIBIL2CPP_URL: ${{ github.event.inputs.libil2cpp_url }}
+          METADATA_URL: ${{ github.event.inputs.metadata_url }}
+      - name: Prepare output dir and run Il2CppDumper
+        run: |
+          mkdir -p ./gamefiles ./dump-output
+          ls -la ./gamefiles/
+          chmod +x ./dumper/Il2CppDumper
+          export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+          ./dumper/Il2CppDumper ./gamefiles/libil2cpp.so ./gamefiles/global-metadata.dat ./dump-output/ || true
+          ls -la ./dump-output/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dump-output
+          path: ./dump-output/
+          retention-days: 30
