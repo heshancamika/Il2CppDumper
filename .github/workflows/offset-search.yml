@@ -1,0 +1,55 @@
+name: IL2CPP Offset Search
+on:
+  workflow_dispatch:
+    inputs:
+      metadata_url:
+        description: 'global-metadata.dat download URL (MediaFire or direct)'
+        required: true
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download metadata
+        run: |
+          URL="${{ github.event.inputs.metadata_url }}"
+          if echo "$URL" | grep -q "mediafire.com"; then
+            DIRECT=$(curl -sL "$URL" | grep -oP 'href="https://download[^"]*"' | head -1 | grep -oP 'https://[^"]+')
+            curl -L "$DIRECT" -o global-metadata.dat
+          else
+            curl -L "$URL" -o global-metadata.dat
+          fi
+          ls -lh global-metadata.dat
+
+      - name: Search offsets with Python
+        run: |
+          python3 - << 'PYEOF'
+          import mmap, os, json
+          keywords = {
+            "headshot": [b"headshot", b"HeadShot", b"Headshot", b"head_shot"],
+            "damage": [b"HeadDamage", b"headDamage", b"Headshot_Multiplier", b"headShotMultiplier", b"HeadMultiplier"]
+          }
+          results = {}
+          with open("global-metadata.dat", "rb") as f:
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            for category, kws in keywords.items():
+              results[category] = []
+              for kw in kws:
+                pos = 0
+                while True:
+                  idx = mm.find(kw, pos)
+                  if idx == -1: break
+                  results[category].append({"keyword": kw.decode(), "offset": hex(idx)})
+                  pos = idx + 1
+            mm.close()
+          with open("offsets.json", "w") as f:
+            json.dump(results, f, indent=2)
+          total = sum(len(v) for v in results.values())
+          print(f"Found {total} offset entries")
+          PYEOF
+
+      - name: Upload offsets
+        uses: actions/upload-artifact@v4
+        with:
+          name: offset-results
+          path: offsets.json
