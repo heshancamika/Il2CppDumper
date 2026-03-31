@@ -9,6 +9,8 @@ on:
         description: 'global-metadata.dat download URL'
         required: true
 
+permissions:
+  contents: write
 jobs:
   dump:
     runs-on: ubuntu-latest
@@ -70,3 +72,16 @@ jobs:
           name: dump-output
           path: ./dump-output/
           retention-days: 30
+      - name: Create GitHub Release with dump output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="dump-run-${{ github.run_id }}"
+          FILES=$(find ./dump-output -type f | tr '
+' ' ')
+          if [ -n "$FILES" ]; then
+            gh release create "$TAG"               --repo "${{ github.repository }}"               --title "Dump Output (Run #${{ github.run_number }})"               --notes "Auto-generated IL2CPP dump output. Download files below."               --prerelease               $FILES
+            echo "Release created: https://github.com/${{ github.repository }}/releases/tag/$TAG"
+          else
+            echo "No dump output files found — skipping release"
+          fi
