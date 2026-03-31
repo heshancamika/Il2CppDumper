@@ -67,6 +67,41 @@ jobs:
           export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
           ./dumper/Il2CppDumper ./gamefiles/libil2cpp.so ./gamefiles/global-metadata.dat ./dump-output/ || true
           ls -la ./dump-output/
+      - name: Parse dump.cs for real offsets
+        run: |
+          python3 - << 'PYEOF'
+          import re, json, os
+          dump_path = "./dump-output/dump.cs"
+          if not os.path.exists(dump_path):
+              print("dump.cs not found, skipping parse")
+              exit(0)
+          with open(dump_path, encoding="utf-8", errors="ignore") as f:
+              content = f.read()
+          keywords = ["headshot", "HeadShot", "Headshot", "HeadDamage", "headDamage",
+                      "head_shot", "HeadMultiplier", "headShotMultiplier", "Headshot_Multiplier",
+                      "damage", "Damage", "health", "Health", "armor", "Armor"]
+          results = []
+          lines = content.split("
+")
+          for i, line in enumerate(lines):
+              m = re.search(r"// Offset: (0x[0-9A-Fa-f]+)", line)
+              if m:
+                  offset = m.group(1)
+                  context = "
+".join(lines[max(0,i-2):i+3])
+                  for kw in keywords:
+                      if kw.lower() in context.lower():
+                          field_line = lines[i+1] if i+1 < len(lines) else ""
+                          results.append({"offset": offset, "keyword": kw, "context": field_line.strip()})
+                          break
+          class_results = []
+          for m in re.finditer(r"public class (w*(?:head|shot|damage|health)w*)", content, re.IGNORECASE):
+              class_results.append({"class": m.group(1)})
+          output = {"real_offsets": results, "classes": class_results}
+          with open("./dump-output/real_offsets.json", "w") as f:
+              json.dump(output, f, indent=2)
+          print(f"Found {len(results)} real offset entries, {len(class_results)} relevant classes")
+          PYEOF
       - uses: actions/upload-artifact@v4
         with:
           name: dump-output
